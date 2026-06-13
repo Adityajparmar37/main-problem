@@ -23,7 +23,7 @@ app.use(helmet());
 // CORS
 app.use(
   cors({
-    origin: [env.FRONTEND_URL, 'http://localhost:5173', 'http://localhost:3000'],
+    origin: [env.FRONTEND_URL, 'http://localhost:5173', 'http://localhost:3000' , 'https://main-problem.vercel.app'],
     credentials: true,
   })
 );
