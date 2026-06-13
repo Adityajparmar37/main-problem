@@ -2,7 +2,7 @@ import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
 const api = axios.create({
-  baseURL: 'https://main-problem.onrender.com/api',
+  baseURL: 'http://localhost:8000/api',
   timeout: 30000,
   headers: { 'Content-Type': 'application/json' },
 });

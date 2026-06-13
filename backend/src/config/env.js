@@ -15,7 +15,7 @@ const envSchema = z.object({
   // ElevenLabs TTS (free plan)
   ELEVENLABS_API_KEY: z.string().min(1, 'ELEVENLABS_API_KEY is required'),
   ELEVENLABS_VOICE_ID: z.string().default('21m00Tcm4TlvDq8ikWAM'), // Rachel — free plan
-  ELEVENLABS_MODEL_ID: z.string().default('eleven_monolingual_v1'),  // free plan model
+  ELEVENLABS_MODEL_ID: z.string().default('eleven_turbo_v2_5'),
 
   // Rate limiting
   MAX_SESSIONS_PER_DAY: z.string().default('20'),
