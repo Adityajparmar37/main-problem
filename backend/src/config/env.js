@@ -32,7 +32,17 @@ const envSchema = z.object({
 let env;
 
 try {
-  env = envSchema.parse(process.env);
+  // Strip accidental quotes and spaces from env vars (common when copying to Render)
+  const cleanEnv = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (typeof value === 'string') {
+      cleanEnv[key] = value.replace(/^["']|["']$/g, '').trim();
+    } else {
+      cleanEnv[key] = value;
+    }
+  }
+
+  env = envSchema.parse(cleanEnv);
 } catch (err) {
   console.error('❌ Invalid environment variables:');
   console.error(err.flatten().fieldErrors);

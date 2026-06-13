@@ -2,7 +2,7 @@ const { GoogleGenAI } = require('@google/genai');
 const env = require('../config/env');
 const logger = require('../config/logger');
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
 
 const SYSTEM_PROMPT = `You are MindMate, a compassionate and supportive AI mental wellness companion for students.
 
