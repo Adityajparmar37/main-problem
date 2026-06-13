@@ -1,8 +1,8 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenAI } = require('@google/genai');
 const env = require('../config/env');
 const logger = require('../config/logger');
 
-const genAI = new GoogleGenerativeAI(env.GEMINI_API_KEY);
+const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
 
 const SYSTEM_PROMPT = `You are MindMate, a compassionate and supportive AI mental wellness companion for students.
 
@@ -27,11 +27,6 @@ Guidelines:
 const generateFirstQuestion = async (context) => {
   const { mood, stress, sleepHours, studyHours, goal } = context;
 
-  const model = genAI.getGenerativeModel({
-    model: env.GEMINI_MODEL,
-    systemInstruction: SYSTEM_PROMPT,
-  });
-
   const prompt = `Student's current state:
 - Mood: ${mood}
 - Stress level: ${stress}/10
@@ -41,8 +36,13 @@ const generateFirstQuestion = async (context) => {
 
 Please start the wellness check-in with a warm, empathetic opening and ask your first question.`;
 
-  const result = await model.generateContent(prompt);
-  return result.response.text().trim();
+  const response = await ai.models.generateContent({
+    model: env.GEMINI_MODEL,
+    contents: prompt,
+    config: { systemInstruction: SYSTEM_PROMPT },
+  });
+
+  return response.text.trim();
 };
 
 /**
@@ -57,32 +57,25 @@ Student context: Mood=${context.mood}, Stress=${context.stress}/10, Sleep=${cont
 This is question ${questionCount} of 5.
 ${questionCount >= 5 ? 'This is the FINAL exchange. Wrap up warmly with encouragement and a summary. Do NOT ask another question.' : ''}`;
 
-  const model = genAI.getGenerativeModel({
+  const history = messages.map((m) => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }],
+  }));
+
+  const chat = ai.chats.create({
     model: env.GEMINI_MODEL,
-    systemInstruction: systemWithContext,
+    history,
+    config: { systemInstruction: systemWithContext },
   });
 
-  // Build history — Gemini requires alternating user/model roles
-  const history = [];
-  for (let i = 0; i < messages.length; i++) {
-    const m = messages[i];
-    history.push({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }],
-    });
-  }
-
-  const chat = model.startChat({ history });
-  const result = await chat.sendMessage(userMessage);
-  return result.response.text().trim();
+  const response = await chat.sendMessage({ message: userMessage });
+  return response.text.trim();
 };
 
 /**
  * Generate a structured session report using Gemini
  */
 const generateSessionReport = async (messages, context) => {
-  const model = genAI.getGenerativeModel({ model: env.GEMINI_MODEL });
-
   const conversation = messages
     .map((m) => `${m.role === 'user' ? 'Student' : 'MindMate'}: ${m.content}`)
     .join('\n');
@@ -103,11 +96,14 @@ Respond with ONLY a valid JSON object (no markdown, no code fences) in this exac
   "recommendations": ["actionable recommendation 1", "recommendation 2", "recommendation 3"]
 }`;
 
-  const result = await model.generateContent(prompt);
-  const raw = result.response.text().trim();
+  const response = await ai.models.generateContent({
+    model: env.GEMINI_MODEL,
+    contents: prompt,
+  });
+
+  const raw = response.text.trim();
 
   try {
-    // Strip markdown code fences if Gemini adds them
     const jsonStr = raw.replace(/^```json?\n?/, '').replace(/\n?```$/, '').trim();
     return JSON.parse(jsonStr);
   } catch (err) {
@@ -128,29 +124,28 @@ Respond with ONLY a valid JSON object (no markdown, no code fences) in this exac
 
 /**
  * Transcribe audio using Gemini's multimodal audio understanding
- * Sends audio buffer as inline base64 data — no Whisper/OpenAI needed
  */
 const transcribeAudio = async (audioBuffer, mimeType = 'audio/webm') => {
-  const model = genAI.getGenerativeModel({ model: env.GEMINI_MODEL });
-
-  // Normalise MIME type — Gemini supports audio/webm, audio/mp4, audio/wav, audio/ogg
   const supportedMime = mimeType.includes('webm') ? 'audio/webm'
     : mimeType.includes('mp4') ? 'audio/mp4'
     : mimeType.includes('wav') ? 'audio/wav'
     : mimeType.includes('ogg') ? 'audio/ogg'
     : 'audio/webm';
 
-  const result = await model.generateContent([
-    {
-      inlineData: {
-        mimeType: supportedMime,
-        data: audioBuffer.toString('base64'),
+  const response = await ai.models.generateContent({
+    model: env.GEMINI_MODEL,
+    contents: [
+      {
+        inlineData: {
+          mimeType: supportedMime,
+          data: audioBuffer.toString('base64'),
+        },
       },
-    },
-    'Please transcribe this audio accurately. Return ONLY the transcribed text with no additional commentary, labels, or formatting.',
-  ]);
+      { text: 'Please transcribe this audio accurately. Return ONLY the transcribed text with no additional commentary, labels, or formatting.' },
+    ],
+  });
 
-  const transcription = result.response.text().trim();
+  const transcription = response.text.trim();
   logger.debug('Gemini transcription', { length: transcription.length });
   return transcription;
 };
