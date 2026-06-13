@@ -1,0 +1,51 @@
+const Redis = require('ioredis');
+const env = require('./env');
+const logger = require('./logger');
+
+let client;
+
+const getRedisClient = () => {
+  if (!client) {
+    client = new Redis(env.REDIS_URL, {
+      maxRetriesPerRequest: 3,
+      lazyConnect: true,
+      enableReadyCheck: true,
+    });
+
+    client.on('connect', () => logger.info('✅ Redis connected'));
+    client.on('error', (err) => logger.error('❌ Redis error', { error: err.message }));
+    client.on('close', () => logger.warn('⚠️ Redis connection closed'));
+  }
+  return client;
+};
+
+// Helper wrappers
+const redisGet = async (key) => {
+  const redis = getRedisClient();
+  const value = await redis.get(key);
+  return value ? JSON.parse(value) : null;
+};
+
+const redisSet = async (key, value, ttlSeconds) => {
+  const redis = getRedisClient();
+  await redis.set(key, JSON.stringify(value), 'EX', ttlSeconds);
+};
+
+const redisDel = async (key) => {
+  const redis = getRedisClient();
+  await redis.del(key);
+};
+
+const redisIncr = async (key, ttlSeconds) => {
+  const redis = getRedisClient();
+  const count = await redis.incr(key);
+  if (count === 1) await redis.expire(key, ttlSeconds);
+  return count;
+};
+
+const redisExpire = async (key, ttlSeconds) => {
+  const redis = getRedisClient();
+  await redis.expire(key, ttlSeconds);
+};
+
+module.exports = { getRedisClient, redisGet, redisSet, redisDel, redisIncr, redisExpire };
