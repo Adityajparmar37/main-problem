@@ -27,25 +27,42 @@ const redisGet = async (key) => {
 };
 
 const redisSet = async (key, value, ttlSeconds) => {
-  const redis = getRedisClient();
-  await redis.set(key, JSON.stringify(value), 'EX', ttlSeconds);
+  try {
+    const redis = getRedisClient();
+    await redis.set(key, JSON.stringify(value), 'EX', ttlSeconds);
+  } catch (err) {
+    logger.warn('Redis SET failed — cache disabled', { key, error: err.message });
+  }
 };
 
 const redisDel = async (key) => {
-  const redis = getRedisClient();
-  await redis.del(key);
+  try {
+    const redis = getRedisClient();
+    await redis.del(key);
+  } catch (err) {
+    logger.warn('Redis DEL failed', { key, error: err.message });
+  }
 };
 
 const redisIncr = async (key, ttlSeconds) => {
-  const redis = getRedisClient();
-  const count = await redis.incr(key);
-  if (count === 1) await redis.expire(key, ttlSeconds);
-  return count;
+  try {
+    const redis = getRedisClient();
+    const count = await redis.incr(key);
+    if (count === 1) await redis.expire(key, ttlSeconds);
+    return count;
+  } catch (err) {
+    logger.warn('Redis INCR failed — skipping rate limit check', { key, error: err.message });
+    return 0;
+  }
 };
 
 const redisExpire = async (key, ttlSeconds) => {
-  const redis = getRedisClient();
-  await redis.expire(key, ttlSeconds);
+  try {
+    const redis = getRedisClient();
+    await redis.expire(key, ttlSeconds);
+  } catch (err) {
+    logger.warn('Redis EXPIRE failed', { key, error: err.message });
+  }
 };
 
 module.exports = { getRedisClient, redisGet, redisSet, redisDel, redisIncr, redisExpire };
